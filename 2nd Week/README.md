@@ -14,7 +14,7 @@
 
 ### Project 1. Threads - Alarm Clock
 
- 이번 모각소 활동 2주차에는 `PintOS`과제의 첫 번째 프로젝트의 첫 번째 과제인 `Alarm Clock` 과제를 수행하였다. 기존에 `PintOS`에서 구현돼있는 `timer_sleep()` 함수를 개선하는 것이 목표인 과제이다. 기존 코드는 아래와 같다.
+	이번 모각소 활동 2주차에는 `PintOS`과제의 첫 번째 프로젝트의 첫 번째 과제인 `Alarm Clock` 과제를 수행하였다. 기존에 `PintOS`에서 구현돼있는 `timer_sleep()` 함수를 개선하는 것이 목표인 과제이다. 기존 코드는 아래와 같다.
 ```
 void
 timer_sleep (int64_t ticks) {
@@ -24,5 +24,5 @@ timer_sleep (int64_t ticks) {
 		thread_yield ();
 }
 ```
- 위 코드는 기본적으로 이 함수를 요청한 스레드가 `ticks`시간만큼 아무 동작도 수행하지 않게 하는 함수이다. 하지만, 시간이 다 되지 않았을 경우 요청 스레드가 본인 차례로 scheduling 될 때마다 `thread_yield()` 함수를 호출하여 다음 scheduling thread로 넘기는 현상이 관찰되고, 이 `busy-waiting`을 해결하는 것이 첫 번째 과제의 핵심이다.
+	위 코드는 기본적으로 이 함수를 요청한 스레드가 `ticks`시간만큼 아무 동작도 수행하지 않게 하는 함수이다. 하지만, 시간이 다 되지 않았을 경우 요청 스레드가 본인 차례로 scheduling 될 때마다 `thread_yield()` 함수를 호출하여 다음 scheduling thread로 넘기는 현상이 관찰되고, 이 `busy-waiting`을 해결하는 것이 첫 번째 과제의 핵심이다.
  
