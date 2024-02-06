@@ -49,3 +49,49 @@ CPU 한개는 한 가지의 프로세스만 처리가 가능하다. 하지만, C
 위의 일련의 과정을 계속 반복하면서 스케줄링을 진행한다.
 
 ### 코드 구현
+
+과제 파일의 `include/threads/thread.h`를 확인하면 `struct thread`라는 구조체를 확인할 수 있다. 이 구조체를 스케줄링 대상의 단위로 삼아 프로그램을 진행한다.
+
+구조체에 `int priority`가 선언돼있는 것을 확인할 수 있고, 이 값을 기반으로 `list.h`에 들어있는 함수들로 정렬을 진행하여 스케줄링 관리를 할 수 있음을 알 수 있다.
+
+`PintOS`의 커널은 `thread_yield()` 함수를 통해 `ready_list` 리스트에서 다음 실행할 스레드를 불러온다. 현재 진행 중인 과제는 우선순위가 가장 높은 스레드를 우선으로 선택하는 알고리즘을 구현하는 것이고, 이는 두 가지 방법으로 구현이 가능하다.
+
+1. `thread_yield()`를 호출할 때마다 `ready_list`에서 가장 높은 우선순위를 가진 스레드를 고르도록 하는 것
+2. 새 스레드가 리스트에 들어갈 때 마다 우선순위 순위에 맞는 위치에 스레드를 넣는 것
+
+1번 방법과 2번 방법의 시간복잡도의 차이는 없지만, `list.h` 파일에 `list_insert_oredered()`라는 함수가 구현돼있으므로 이 함수를 이용해 2번 방법을 활용한다. 이 함수는 대소비교 함수를 직접 제작해서 함수 argument로 넣어줘야 한다. 리스트 원소들의 우선순위 대소비교를 위한 함수는 다음과 같다.
+
+```
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux) {
+	return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
+}
+```
+
+> `list_entry()`는 `list.h`에 구현된 매크로로, `list_elem`구조체를 포함하는 어떤 구조체 전체를 나타내는 매크로이다. 위에서는 `struct thread`를 두 번째 인자로 넣었으므로, a 혹은 b `list_elem`을 포함하는 `struct thread`의 주소를 나타내게 된다.
+
+비교함수도 구현했으므로, 리스트에 스레드를 넣는 부분을 전부 찾아서 다음으로 바꿔준다.
+
+```
+list_insert_ordered(&ready_list, &curr->elem, &compare_priority, NULL);
+```
+
+리스트에 새 스레드를 넣는 부분은 `thread_yield()`, `thread_unblock()` 두 함수에 있으므로 그 부분을 위의 함수로 대체하면 된다.
+
+현재 과제는 `preemptive`한 스케줄러를 구현하는 것이 목표이므로, `preemption` 발생 조건을 만족하는 부분을 찾아 수정을 해줘야 한다.
+
+`preemption`을 발생시키는 경우는 크게 두 가지가 있다.
+
+1. 현재 `Running` 상태인 스레드의 우선순위보다 더 높은 우선순위를 가진 스레드가 `Ready queue`에 들어왔을 때.
+2. `Running` 상태인 스레드의 우선순위가 새로 설정되어 `Ready queue`에 존재하는 스레드의 우선순위 중 최댓값보다 작게 되었을 때.
+
+이 두가지 상황을 만족할 때마다 `thread_yield()` 함수를 실행하여, 새로 스케줄링을 해줘야 한다. 따라서, `thread_preemption()`라는 함수를 새로 만들어 이 함수를 위의 상황마다 넣어준다. 함수의 코드는 아래와 같다.
+
+```
+void thread_preemption(void) {
+	if (!list_empty (&ready_list) && thread_current ()->priority < 
+    list_entry (list_front (&ready_list), struct thread, elem)->priority)
+        thread_yield ();
+}
+```
+
+1번 상황의 경우 `thread_create()`를 호출하여 새 스레드를 생성할 때이고, 2번 상황은 `thread_set_priority()`함수를 통해 우선순위를 새로 설정할 때이므로 각각 함수의 마지막에 위 함수를 넣어준다.
