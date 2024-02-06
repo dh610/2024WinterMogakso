@@ -2,7 +2,7 @@
 
 ## 소프트웨어학과 202020169 윤동현
 
-## PintOS Project 1 두 번째 과제 진행
+## PintOS Project 1-Priority Scheduling
 
 ### Synchronization
 
