@@ -74,6 +74,8 @@ void sema_up (struct semaphore *sema)
 
 추가로, 우선순위가 변할 때, `ready_list`에 대해서만 재정렬 하기 때문에, `.waiters` 리스트에 대해서도 재정렬 해줄 필요가 있다. 우선순위가 변하는 상황을 모두 찾아 코드를 추가하는 것은 번거로우므로, 위의 `compare_priority()` 비교 함수를 인자로 받는 `list.h`의 함수 `list_sort()` 함수를 활용하여, `sema_up()`을 호출할 때마다 정렬하도록 한다.
 
+또한 `thread_unblock()`을 통해 `ready_list`에 새 원소가 추가됐으므로, `thread_preemption()`을 통해 새로 스케줄링을 진행한다.
+
 수정 결과는 다음과 같다.
 
 ```
