@@ -6,8 +6,8 @@
 
 ### 2주차: PintOS Project 1-alarm clock
 
-### 3주차: PintOS Project 1-priority scheduling
+### 3주차: PintOS Project 1-priority scheduling(scheduling)
 
-### 4주차: PintOS Project 1-priority scheduling(Synchronization)
+### 4주차: PintOS Project 1-priority scheduling(synchronization)
 
 ### 5주차: PintOS Project 1-priority scheduling(priority inheritance)
