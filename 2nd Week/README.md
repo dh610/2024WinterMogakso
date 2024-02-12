@@ -11,7 +11,7 @@
 > * 본인은 KAIST에서 제공하는 `git clone https://github.com/casys-kaist/pintos-kaist` URL을 통해 PintOS 과제를 진행하였다.
 > * `PintOS`는 실행 파일 실행 시 일반 컴퓨터처럼 `booting`이 되고 각종 `kernel`의 기본 요소들이 초기화 되고, 프로그램들을 추가로 `load`하는 방식으로 운영이 된다.
 > * 이 기본 로직에서 성능적으로 개선할 만한 부분들을 개선하는 것을 과제로 삼아 프로젝트를 진행하게 된다.
-> * 이번 동계 모각소를 진행하면서, Project 1에 대해 진행하고자 한다.
+> * 이번 동계 모각소를 진행하면서, Project 1에 대해 진행하고자 한다. 
 
 ### Project 1. Threads - Alarm Clock
 
