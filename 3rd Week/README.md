@@ -2,7 +2,7 @@
 
 ## 소프트웨어학과 202020169 윤동현
 
-## PintOS Project 1-Priority Scheduling
+## PintOS Project 1-Priority Scheduling 
 
 아래는 과제 링크이다.
 https://casys-kaist.github.io/pintos-kaist/project1/priority_scheduling.html
