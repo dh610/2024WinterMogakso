@@ -60,4 +60,125 @@
 
 ### 구현
 
-우선 스레드 구조체를 변경해줄 필요가 있다. 
+우선 스레드 구조체를 변경해줄 필요가 있다. 각 스레드가 어떤 리소스를 요청하고 있는지 확인할 수 있어야 하므로 `struct lock`에 대한 원소를 추가한다.
+
+또한, 원래 우선순위로 돌아가야하므로 그에 대한 원소도 추가한다. 마지막으로, 리스트를 만들어 현재 점유중인 리소스도 확인할 수 있도록 한다.
+
+따라서 `struct thread`에 아래의 코드를 추가한다.
+
+```
+int prio_orig;
+struct lock *lock_wait;
+struct list lock_resource;
+```
+
+또한 잠금에 대해 리스트를 만들었으므로, `struct lock`에 아래의 코드를 추가한다.
+
+```
+struct list_elem elem;
+```
+
+`struct thread`에 새 원소들이 생겼으므로 `init_thread()` 함수도 다음의 초기화 코드를 추가해준다.
+
+```
+t->prio_orig = priority;
+list_init(&lock_resource);
+```
+
+`lock_aquire()` 함수를 다음과 같이 수정한다.
+
+```
+void lock_acquire (struct lock *lock) {
+	ASSERT (lock != NULL);
+	ASSERT (!intr_context ());
+	ASSERT (!lock_held_by_current_thread (lock));
+
+	if (lock_try_acquire(lock)) return;
+
+	thread_current()->lock_wait = lock;
+
+	for (struct thread *tmp1 = thread_current(), *tmp2; tmp1->lock_wait != NULL; tmp1 = tmp2) {
+		tmp2 = tmp1->lock_wait->holder;
+		if (thread_get_priority() <= tmp2->priority) break;
+		tmp2->priority = thread_get_priority();
+		if (tmp2->lock_wait != NULL) {
+			list_remove(&tmp2->elem);
+			list_insert_ordered(&tmp2->lock_wait->semaphore.waiters,
+				&tmp2->elem, compare_priority, NULL);
+
+		}
+	}
+
+	sema_down (&lock->semaphore);
+	list_push_back(&thread_current()->lock_resource, &lock->elem);
+	thread_current()->lock_wait = NULL;
+	lock->holder = thread_current();
+}
+```
+
+> `lock_try_aquire()` 함수는 잠금을 시도하여 성공할 경우 리소스를 점유한 상태로 true를 반환하고, 실패할 경우는 그냥 false를 반환하는 함수이다. 이 함수를 통해 이후 donation 관련 코드를 실행할지 말지를 정한다.
+> 이후 코드는 리소스 점유에 실패한 상황. 즉, 대기하는 상황이므로, 현재 스레드의 lock_wait에 대기할 lock을 추가한다.
+> 반복문을 돌면서 본인의 lock과 관련하여 대기중인 모든 스레드의 우선순위를 변경해야 할 경우 변경한다.
+> 그 이후 세마포어 함수를 통해 스레드를 대기 상태로 만든다.
+> 세마포어 함수가 끝났다는 것은 대기가 끝나고 리소스를 점유하는데 성공했다는 뜻이므로, lock_resource 리스트에 획득한 리소스를 추가하고, lock_wait를 NULL로 설정하여 lock에 대한 대기를 하고 있지 않음을 나타낸다.
+> 현재 스레드가 리소스를 점유하게 됐으므로 lock의 holder를 현재 스레드로 설정한다.
+
+`lock_release()` 함수를 다음과 같이 수정한다.
+
+```
+void
+lock_release (struct lock *lock) {
+	ASSERT (lock != NULL);
+	ASSERT (lock_held_by_current_thread (lock));
+
+	struct thread *curr = thread_current();
+
+	list_remove(&lock->elem);
+	curr->priority = curr->prio_orig;
+
+	if (list_empty(&curr->lock_resource)) goto exit;
+
+	for (struct list_elem *e = list_begin(&curr->lock_resource); e != list_end(&curr->lock_resource); e = list_next(e)) {
+		struct lock *tmp = list_entry(e, struct lock, elem);
+		if (!list_empty(&tmp->semaphore.waiters))
+			curr->priority = list_entry(list_begin(&tmp->semaphore.waiters), struct thread, elem)->priority >
+			curr->priority ? list_entry(list_begin(&tmp->semaphore.waiters), struct thread, elem)->priority : curr->priority;
+	}
+
+exit:
+
+	lock->holder = NULL;
+	sema_up (&lock->semaphore);
+}
+```
+
+> 잠금을 해제하므로 `list_remove()`함수를 통해 현재 스레드의 lock_resource 리스트에 현재 리소스가 없도록 한다.
+> 이후의 코드는 우선순위를 원래대로 돌리거나, 혹은 다른 스레드의 우선순위를 받거나를 정하는 코드이다.
+> 우선 스레드의 우선순위를 prio_orig 값으로 변경하여 최초의 상태로 만든다.
+> 그 후 lock_resource 리스트가 비었다면, donation을 받지 않아도 되므로 exit로 이동한다.
+> 그렇지 않다면, lock_resource 리스트를 탐색하면서 lock의 holder중에 가장 우선순위가 높은 스레드의 우선순위를 받는다.
+> 그 이후 exit 루틴을 수행한다.
+> 리소스를 점유하는 스레드가 없게 되므로 lock의 holder를 NULL로 설정해주고, 세마포어 함수를 통해 현재 잠금을 점유할 수 있는 상태로 만들고 스레드는 `ready_list`에 들어가 스케줄링 후보가 된다.
+
+우선순위에 대한 정책이 바뀌었으므로, 우선순위를 바꾸는 함수인 `thread_set_priority()` 함수도 변경해줘야 한다. 변경 내용은 다음과 같다.
+
+```
+void thread_set_priority (int new_priority) {
+	struct thread *curr = thread_current();
+	curr->priority = new_priority;
+	curr->prio_orig = new_priority;
+	if (!list_empty(&curr->lock_resource))
+		for (struct list_elem *e = list_begin(&curr->lock_resource); e != list_end(&curr->lock_resource); e = list_next(e)) {
+			struct lock *tmp = list_entry(e, struct lock, elem);
+			if (!list_empty(&tmp->semaphore.waiters))
+				curr->priority = list_entry(list_begin(&tmp->semaphore.waiters), struct thread, elem)->priority >
+				curr->priority ? list_entry(list_begin(&tmp->semaphore.waiters), struct thread, elem)->priority : curr->priority;
+		}
+	
+	thread_preemption();
+}
+```
+
+> 우선순위를 바꾸는 함수기에 요청값대로 우선순위를 변경한다. 우선순위가 donation에 의해 변경된 것이 아니므로 prio_orig도 새 우선순위 값으로 설정해준다.
+> 그 후는 위의 `lock_release()` 함수에서 처리한 것처럼 반복문을 통해 lock_resource 리스트를 탐색하여 우선순위를 변경할지 말지 정하고, 변경해야 할 경우 변경한다.
+> 우선순위가 변경됐기 때문에 `thread_preemption()` 함수 호출을 통해 새로 스케줄링을 할 수 있도록 한다.
