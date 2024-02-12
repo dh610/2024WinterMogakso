@@ -16,7 +16,7 @@
 
 따라서, 한 스레드가 공유 리소스에 접근할 때 다른 리소스가 접근하지 못하도록 해 주어야 하고, 이를 `Synchronization`(동기화)라고 한다.
 
-동기화 문제를 해결하는 법으로는 mutex lock, semaphore 등이 있다. mutex lock과 관련하여 발생하는 `Priority Inversion` 문제는 다음 주차에서 다룰 예정이므로, semaphore에 대해 설명하겠다.
+동기화 문제를 해결하는 법으로는 mutex lock, semaphore 등이 있다.
 
 ### Semaphore
 
@@ -114,3 +114,41 @@ void sema_up (struct semaphore *sema) {
 	intr_set_level (old_level);
 }
 ```
+
+### Mutex lock
+
+특정 리소스에 대해 잠금을 실행하여, 다른 어느 프로세스도 접근할 수 없도록 하는 것이다. 잠금이 걸린 상태에서 다른 프로세스가 접근하려고 할 때, 다른 프로세스들은 전부 대기상태가 된다.
+
+PintOS에서는 구조체 `struct lock`과 그에 관련된 함수들로 구현했다. 세마포어가 구현된 상태이기 때문에, 값이 1인 세마포어를 설정하여 구현했다.
+
+```
+struct lock {
+	struct thread *holder;
+	struct semaphore semaphore;
+};
+```
+
+> .holder는 리소스를 점유 중인 스레드를 가리키는 포인터이고, .semaphore는 값이 1인 세마포어이다.
+
+```
+void lock_acquire (struct lock *lock) {
+	ASSERT (lock != NULL);
+	ASSERT (!intr_context ());
+	ASSERT (!lock_held_by_current_thread (lock));
+
+	sema_down (&lock->semaphore);
+	lock->holder = thread_current ();
+}
+
+void lock_release (struct lock *lock) {
+	ASSERT (lock != NULL);
+	ASSERT (lock_held_by_current_thread (lock));
+
+	lock->holder = NULL;
+	sema_up (&lock->semaphore);
+}
+```
+
+> 잠금을 요청하고 해제하는 함수들이다. 값이 1인 세마포어를 설정하였기에, 잠금은 하나의 스레드만 점유할 수 있고, 세마포어 값을 0으로 만들어 잠금을 만들 수 있으므로 잠금 요청 시는 `sema_down()` 함수를 사용하고, 반대로 잠금 해제 시에는 `sema_up()` 함수를 사용한다.
+
+잠금에 대한 코드 수정은 `Priority Inversion`문제를 다루고 구현해야하므로 다음 주차에 다루도록 하겠다.
