@@ -13,5 +13,3 @@
 ### 5주차: PintOS Project 1-priority scheduling(priority inheritance)
 
 ### 6주차: PintOS Project 2-argument passing
-
-### 7주차: PintOS Project 2-system call
